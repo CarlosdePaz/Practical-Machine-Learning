@@ -1,0 +1,102 @@
+---
+title: "Course Project (PML)"
+author: "Carlos de Paz"
+date: "12 de junio de 2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Download, read and prepare the data sets
+Dear Coursera Friends, 
+I'm going to show you my Course project based on this webpage: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). The data can be download by clicking in those links:
+Training data: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+Testing data: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+Firts of all, I recommend to clean the R session and reading the data (training and testing). The raw data was full of NA and missing values, so I cleaned them. Then, I only chose those numerical variables for the model and the classes variable which is going to be the prediccion variable.
+
+```{r data}
+rm(list=ls())
+library(caret)
+data_training<- read.csv("pml-training.csv", sep=",", header=TRUE, na.strings = c("NA","#DIV/0!","")) 
+data_testing<- read.csv("pml-testing.csv", sep=",", header=TRUE, na.strings = c("NA","#DIV/0!","")) 
+dim(data_training)
+dim(data_testing)
+
+#Clean NA values
+data_training <- data_training[,(colSums(is.na(data_training)) == 0)] 
+data_testing <- data_testing[,(colSums(is.na(data_testing)) == 0)] 
+dim(data_training)
+dim(data_testing)
+
+#Only numerical variables
+data_training<-data_training[8:60] 
+data_testing<-data_testing[8:60] 
+dim(data_training)
+dim(data_testing)
+```
+
+## Training & Validation Subset 
+After cleaning the data, I split the training data in two groups: 70% training and 30% of validation (as a test inside the data_training).
+
+```{r set}
+set.seed(333)
+inTrain<-createDataPartition(data_training$classe, p=.7, list=F)
+training<-data_training[inTrain,]
+val<-data_training[-inTrain,]
+dim(training)
+dim(val)
+```
+
+## Train the Models 
+Then, I performed two models: 
+
+Model 1: Random forest, because its a technique with high levels of accuracy and I used it with 200 numbers of trees to control the error rate. As a train control i picked out-of-bag (OOB). A pre processing was also performed.
+```{r train1}
+#Model 1: Random Forest
+modRF = train(classe ~ ., data=training, preProcess=c("center","scale"), method = "rf", ntree = 200, trControl=trainControl(method='oob'))
+modRF
+
+
+modRF$results$Accuracy[1] 
+```
+
+Model 2: K-Nearest Neighbors, it's another tool to train our data, however it is expected to hace lower accuracy 
+```{r train2}
+#Model 2: KNN
+modKnn = train(classe ~ ., data=training, method = "knn", trControl=trainControl(method = "adaptive_cv"))
+modKnn
+
+modKnn$results$Accuracy[1] 
+
+```
+As I previously mentioned, the Random Forest > KNN in accuracy. Thus, I only used the RF model to perform the rest of the analisys 
+
+## Predictions, Confusion Matrix, Accuracy and Out of Sample Errors 
+Now, I'm going to test how well the RF model predicts new cases inside the data_training and how much is the out of Sample error
+
+```{r preds}
+pred_val<-predict(modRF,val)
+confM<-confusionMatrix(val$classe, pred_val)
+confM
+
+confM$overall[1]
+
+out_of_sample_error <- 1-confM$overall[1]
+out_of_sample_error
+```
+
+##Apply the model on the data test
+Finally, the RF model is going to be tested by the 20 data test
+
+```{r test}
+testing_predicts<-predict(modRF, data_testing)
+testing_predicts
+```
+
+The solutions given by the model are exactly the same as the Coursera final course.
+Thank you for your time and good luck with your models :)
